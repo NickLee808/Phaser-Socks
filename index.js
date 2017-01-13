@@ -19,6 +19,33 @@ app.get('/api/hello', (req, res) => {
   res.json({ hello });
 });
 
+function clientHandleOp( msg ){
+  let error;
+
+  switch( msg.OP ){
+    case OP.REGISTER:
+      error = `You are already registered as: '${this.username}'`;
+      this.sendOp(OP.ERROR, { error });
+      break;
+    case OP.CHAT:
+      // loop through all players (in the map)
+      //  if the player is not the sender  this.username  !== playerUsername
+      // sendOp(OP.CHAT, { message })
+      players.forEach( (player, playerUsername) => {
+        if(playerUsername !== this.username){
+          let message = msg.payload.message;
+          player.sendOp(OP.CHAT, { message });
+        }
+      });
+      break;
+    default:
+      error = `Unknown OP received. Server does not understand: '${msg.OP}'`;
+      console.warn(error);
+      this.sendOp(OP.ERROR, { error });
+      return;
+  }
+}
+
 function clientReceiveMessage( message ){
   let msg;
   try{
@@ -50,6 +77,7 @@ function clientReceiveMessage( message ){
     return; // trap
   }
 
+  this.clientHandleOp(msg);
 }
 
 function clientDisconnect(){
@@ -74,16 +102,12 @@ function sendOp(op, payload){
 wss.on('connection', client => {
   client.username = null;
   client.sendOp = sendOp;
+  client.clientHandleOp = clientHandleOp;
 
   client.on('message', clientReceiveMessage.bind(client));
   client.on('close', clientDisconnect.bind(client));
 
 });
-
-server.on('request', app);
-server.listen(PORT, _ =>
-  console.log('Server Listening on ' + server.address().port)
-);
 
 server.on('request', app);
 server.listen(PORT, _ =>
